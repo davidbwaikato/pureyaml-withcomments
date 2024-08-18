@@ -7,5 +7,5 @@ been developed for programmers who want to take account -- for
 analysis purposes -- of the comments that are included in a YAML file.
 
 The README file documents how to use the extended feature.  For all
-other details, refer to the original [README-orig.rst](README-orig)
+other details, refer to the original [README-orig](README-orig.rst)
 file.
