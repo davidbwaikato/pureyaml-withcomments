@@ -69,7 +69,6 @@ class YAMLProductions(YAMLTokens):
         """
         comment  : COMMENT
         """
-        print("**** <p_comment> production rule")
         p[0] = Comment(p[1])
         
     @strict(Map)
