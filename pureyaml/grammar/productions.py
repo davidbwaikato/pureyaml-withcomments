@@ -53,15 +53,25 @@ class YAMLProductions(YAMLTokens):
 
         p[0] = p[2]
 
-    @strict(Sequence, Map)
+    @strict(Comment, Sequence, Map)
     def p_collection(self, p):
         """
-        collection  : sequence
+        collection  : comment
+                    | sequence
                     | map
                     | flow_collection
         """
         p[0] = p[1]
 
+    # ****
+    @strict(Comment)
+    def p_comment(self, p):
+        """
+        comment  : COMMENT
+        """
+        print("**** <p_comment> production rule")
+        p[0] = Comment(p[1])
+        
     @strict(Map)
     def p_map__last(self, p):
         """

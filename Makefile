@@ -91,7 +91,7 @@ coverage:
 
 github:
 	python docs/github_docs.py
-	rst-lint README.rst
+	rst-lint README-orig.rst
 
 docs: clean-docs builddocs github
 

@@ -12,6 +12,7 @@ class TokenList(object):
     tokens = [  # :off
         'DOC_START',
         'DOC_END',
+        'COMMENT', # ****
         'B_SEQUENCE_COMPACT_START',
         'B_SEQUENCE_START',
         'B_MAP_COMPACT_KEY',
@@ -136,7 +137,7 @@ class YAMLTokens(TokenList):
 
     # state: comment
     # -------------------------------------------------------------------
-    t_comment_ignore_COMMENT = r'[^\n]+'
+    t_comment_COMMENT = r'[^\n]+' # ****
 
     def t_INITIAL_flowsequence_flowmap_begin_comment(self, t):
         r'\s*[\#\%]\ ?'
@@ -361,3 +362,32 @@ class YAMLTokens(TokenList):
     def t_SCALAR(self, t):
         r'(?:\\.|[^\n\#\:\-\|\>]|[\:\-\|\>]\S)+'
         return t
+
+
+    # ****
+    def t_comment_error(self, t):
+        print(f"<comment> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_doublequote_error(self, t):
+        print(f"<doublequote> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_literal_error(self, t):
+        print(f"<literal> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_fold_error(self, t):
+        print(f"<fold> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_flowsequence_error(self, t):
+        print(f"<flowsequence> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_flowmap_error(self, t):
+        print(f"<flowmap> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    def t_singlequote_error(self, t):
+        print(f"<singlequote> Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+
+    def t_error(self, t):
+        print(f"Illegal character '{t.value[0]}'")
+        t.lexer.skip(1)
+    

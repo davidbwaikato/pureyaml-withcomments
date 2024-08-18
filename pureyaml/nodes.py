@@ -108,6 +108,10 @@ class Doc(Collection):
 class Sequence(Collection):
     pass
 
+# ****
+class Comment(Node):
+    def __init__(self, value, *args, **kwargs):
+        self.value = value
 
 @implements_iterator
 class MappingMixin(abc.Mapping):
@@ -363,6 +367,7 @@ class NodeVisitor(object):
     def generic_visit(self, node):
         raise RuntimeError('No visit_%s method' % type(node).__name__)
 
-
-__all__ = ['Node', 'Collection', 'Docs', 'Doc', 'Sequence', 'Map', 'Scalar', 'Null', 'Str', 'Int', 'Float', 'Bool',
-           'Binary', 'ScalarDispatch', 'NodeVisitor', ]
+# ****
+__all__ = ['Node', 'Collection', 'Docs', 'Doc', 'Comment', 'Sequence', 'Map',
+           'Scalar', 'Null', 'Str', 'Int', 'Float', 'Bool', 'Binary',
+           'ScalarDispatch', 'NodeVisitor', ]

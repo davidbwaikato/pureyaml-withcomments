@@ -28,7 +28,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
-with open('README.rst') as readme_file:
+with open('README-orig.rst') as readme_file:
     readme = readme_file.read()
 
 with open('HISTORY.rst') as history_file:
