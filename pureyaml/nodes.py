@@ -109,6 +109,9 @@ class Sequence(Collection):
     pass
 
 # ****
+class CommentSequence(Collection):
+    pass
+
 class Comment(Node):
     def __init__(self, value, *args, **kwargs):
         self.value = value
@@ -368,6 +371,6 @@ class NodeVisitor(object):
         raise RuntimeError('No visit_%s method' % type(node).__name__)
 
 # ****
-__all__ = ['Node', 'Collection', 'Docs', 'Doc', 'Comment', 'Sequence', 'Map',
+__all__ = ['Node', 'Collection', 'Docs', 'Doc', 'CommentSequence', 'Comment', 'Sequence', 'Map',
            'Scalar', 'Null', 'Str', 'Int', 'Float', 'Bool', 'Binary',
            'ScalarDispatch', 'NodeVisitor', ]

@@ -52,11 +52,11 @@ class YAMLProductions(YAMLTokens):
         """
 
         p[0] = p[2]
-
-    @strict(Comment, Sequence, Map)
+        
+    @strict(CommentSequence, Sequence, Map)
     def p_collection(self, p):
         """
-        collection  : comment
+        collection  : comment_sequence
                     | sequence
                     | map
                     | flow_collection
@@ -64,10 +64,24 @@ class YAMLProductions(YAMLTokens):
         p[0] = p[1]
 
     # ****
+    @strict(CommentSequence)
+    def p_comment__last(self, p):
+        """
+        comment_sequence    : comment_item
+        """
+        p[0] = CommentSequence(p[1])
+
+    @strict(CommentSequence)
+    def p_comment__init(self, p):
+        """
+        comment_sequence    : comment_sequence comment_item
+        """
+        p[0] = p[1] + CommentSequence(p[2])
+    
     @strict(Comment)
     def p_comment(self, p):
         """
-        comment  : COMMENT
+        comment_item  : COMMENT
         """
         p[0] = Comment(p[1])
         

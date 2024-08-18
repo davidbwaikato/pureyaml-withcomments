@@ -24,5 +24,15 @@ git clone --recurse-submodules https://github.com/davidbwaikato/pureyaml-withcom
 cd pureyaml-withcomments
 
 pip install -e .
+
+pip install ply
+
+# At the time of testing, version of ply was 3.11.  If looking to match
+# to this version, then:
+pip install ply==3.11
+
+
+export PUREYAML_OPTIMIZE=false
+
 ```
 
