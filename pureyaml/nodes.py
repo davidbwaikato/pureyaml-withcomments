@@ -4,7 +4,9 @@
 from __future__ import absolute_import
 
 import re
+import sys
 import types
+
 from base64 import standard_b64decode, standard_b64encode
 from functools import partial
 from math import isnan
@@ -14,6 +16,8 @@ from future.utils import implements_iterator, binary_type, text_type
 from ._compat import collections_abc as abc, total_ordering
 from .exceptions import YAMLCastTypeError
 
+WITHCOMMENTS_NODES_DEBUG=False
+#WITHCOMMENTS_NODES_DEBUG=True
 
 # noinspection PyMethodMayBeStatic
 @total_ordering
@@ -102,19 +106,22 @@ class Docs(Collection):
 
 
 class Doc(Collection):
-    pass
 
+    def has_comments(self):
+        return hasattr(self,'comments')
+    
+    def set_comments(self,comments):
+        self.comments = comments.copy()
+
+    def get_comments(self):
+        if self.has_comments():
+            return self.comments
+        else:
+            return None
+        
 
 class Sequence(Collection):
     pass
-
-# ****
-class CommentSequence(Collection):
-    pass
-
-class Comment(Node):
-    def __init__(self, value, *args, **kwargs):
-        self.value = value
 
 @implements_iterator
 class MappingMixin(abc.Mapping):
@@ -183,9 +190,28 @@ class Scalar(Node):
 
     # noinspection PyMissingConstructor
     def __init__(self, value, *args, **kwargs):
+        has_comments = False
+
+        value_classname = type(value).__name__
+        if WITHCOMMENTS_NODES_DEBUG:
+            print(f"****## Scalar(): value_classname = {value_classname}",file=sys.stderr)
+        
+        if (value_classname == "YAMLCommentedScalarToken"):
+            if value.has_comments():                
+                has_comments = True
+                wrapped_commented_token = value
+            lineno = value.lineno
+            value = value.get_value()
+            
         self.raw_value = value
         self.value = self.init_value(value, *args, **kwargs)
 
+        if has_comments:
+            if WITHCOMMENTS_NODES_DEBUG:            
+                print(f"****## Copying across comment: {wrapped_commented_token.comments}",file=sys.stderr)
+            self.lineno = lineno
+            self.comments = wrapped_commented_token.get_comments().copy()
+            
     def init_value(self, value, *args, **kwargs):
         return self.type(value)
 
@@ -198,7 +224,29 @@ class Scalar(Node):
     def __len__(self):
         return 1
 
+    # ****
+    def has_comments(self):
+        return hasattr(self,'comments')
 
+    def append_comment(self, comment):
+        if self.has_comments():
+            self.comments.append(comment)
+        else:        
+            self.comments = [ comment ]
+
+        if WITHCOMMENTS_NODES_DEBUG:
+            print(f"****## appended comment = {self.comments}",file=sys.stderr)
+
+            
+    def get_comments(self):
+        returned_comments = None
+        
+        if self.has_comments():
+            returned_comments = self.comments
+
+        return returned_comments
+    
+            
 class Null(Scalar):
     type = None
 
@@ -311,25 +359,42 @@ class ScalarDispatch(object):
     """, re.X)
 
     def __new__(cls, value, cast=None):  # noqa
+        
+        value_classname = type(value).__name__
+        if (value_classname == "YAMLCommentedScalarToken"):
+            inner_value = value.get_value()
+        else:
+            # Not in a wrapped up Scalar situation
+            # => set 'inner_value' to be the same as 'value'
+            inner_value = value
+            
         # Guard, explicit casting
         if cast is not None:
             try:
+                if WITHCOMMENTS_NODES_DEBUG:
+                    print("****## <DispatchScalar>__new__: Explicit cast",file=sys.stderr)
                 return cls.map[cast](value)
             except KeyError:
                 raise YAMLCastTypeError(cast=cast)
 
         # Guard, already casted
-        type_name = type(value).__name__
-        if not isinstance(value, str) and type_name in cls.map:
+        inner_type_name = type(inner_value).__name__
+        if not isinstance(inner_value, str) and inner_type_name in cls.map:
+            if WITHCOMMENTS_NODES_DEBUG:
+                print("****## <DispatchScalar>__new__: Already cast????",file=sys.stderr)
             return cls.map[type_name](value)
 
         # Guard, empty value
-        value = value.strip()
-        if value == '':
+        inner_value = inner_value.strip()
+        if inner_value == '':
+            if WITHCOMMENTS_NODES_DEBUG:
+                print("****## <DispatchScalar>__new__: NULL value given",file=sys.stderr)
             return Null(value)
 
-        match = cls.re_dispatch.match(value)
+        match = cls.re_dispatch.match(inner_value)
         try:
+            if WITHCOMMENTS_NODES_DEBUG:
+                print(f"****## <DispatchScalar>__new__: Dynamic cast: <{match.lastgroup}>",file=sys.stderr)
             return cls.map[match.lastgroup](value)
         except AttributeError:
             message = 'Cannot cast data: {value}'.format(value=value)
@@ -371,6 +436,7 @@ class NodeVisitor(object):
         raise RuntimeError('No visit_%s method' % type(node).__name__)
 
 # ****
-__all__ = ['Node', 'Collection', 'Docs', 'Doc', 'CommentSequence', 'Comment', 'Sequence', 'Map',
+__all__ = ['Node', 'Collection', 'Docs', 'Doc',
+           'Sequence', 'Map',
            'Scalar', 'Null', 'Str', 'Int', 'Float', 'Bool', 'Binary',
            'ScalarDispatch', 'NodeVisitor', ]

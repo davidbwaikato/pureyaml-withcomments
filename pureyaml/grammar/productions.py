@@ -2,13 +2,17 @@
 """Yaml grammar production rules."""
 from __future__ import absolute_import
 
+import sys
+
 import re
 from textwrap import dedent
 
-from .tokens import YAMLTokens
+from .tokens import YAMLTokens, YAMLCommentedScalarToken
 from .utils import strict, fold
 from ..nodes import *  # noqa
 
+WITHCOMMENTS_PRODUCTIONS_DEBUG=False
+#WITHCOMMENTS_PRODUCTIONS_DEBUG=True
 
 # noinspection PyIncorrectDocstring,PyMethodMayBeStatic
 class YAMLProductions(YAMLTokens):
@@ -44,7 +48,17 @@ class YAMLProductions(YAMLTokens):
         doc : collection
             | scalar
         """
-        p[0] = Doc(p[1])
+        # ****
+        doc_node = Doc(p[1])
+        if YAMLTokens.StartOfDocComments:
+            doc_node.set_comments(YAMLTokens.StartOfDocComments)
+
+        YAMLTokens.StartOfDocComments = None
+        YAMLTokens.MostRecentScalarNode = None
+        YAMLTokens.MostRecentScalarToken = None
+            
+        p[0] = doc_node
+            
 
     def p_doc_scalar_collection_ignore(self, p):
         """
@@ -52,38 +66,15 @@ class YAMLProductions(YAMLTokens):
         """
 
         p[0] = p[2]
-        
-    @strict(CommentSequence, Sequence, Map)
+
+    @strict(Sequence, Map)
     def p_collection(self, p):
         """
-        collection  : comment_sequence
-                    | sequence
+        collection  : sequence
                     | map
                     | flow_collection
         """
         p[0] = p[1]
-
-    # ****
-    @strict(CommentSequence)
-    def p_comment__last(self, p):
-        """
-        comment_sequence    : comment_item
-        """
-        p[0] = CommentSequence(p[1])
-
-    @strict(CommentSequence)
-    def p_comment__init(self, p):
-        """
-        comment_sequence    : comment_sequence comment_item
-        """
-        p[0] = p[1] + CommentSequence(p[2])
-    
-    @strict(Comment)
-    def p_comment(self, p):
-        """
-        comment_item  : COMMENT
-        """
-        p[0] = Comment(p[1])
         
     @strict(Map)
     def p_map__last(self, p):
@@ -105,7 +96,7 @@ class YAMLProductions(YAMLTokens):
         map_item    : map_item_key map_item_value
         """
         p[0] = p[1], p[2]
-
+        
     @strict(tuple)
     def p_map_item__compact_scalar(self, p):
         """
@@ -190,7 +181,7 @@ class YAMLProductions(YAMLTokens):
         sequence_item   : B_SEQUENCE_START scalar
         """
         p[0] = p[2]
-
+        
     # @strict(Null)
     # def p_sequence_item_scalar_empty(self, p):
     #     """
@@ -226,38 +217,90 @@ class YAMLProductions(YAMLTokens):
         """
         scalar  : DOUBLEQUOTE_START SCALAR DOUBLEQUOTE_END
         """
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> (\"double-quote\") {p[2]}",file=sys.stderr)
+            
+        #scalar = re.sub('\n\s+', ' ', str(p[2]))
+        # p[0] = Str(scalar.replace('\\"', '"'))
+        # ****
+        wrapped_scalar_token2 = p[2]
+        scalar2a = wrapped_scalar_token2.get_value()
+        scalar2b = re.sub('\n\s+', ' ', scalar2a)
+        scalar2c = scalar2b.replace('\\"', '"')
+        wrapped_scalar_token2c = YAMLCommentedScalarToken.WrapAsString(scalar2c,wrapped_scalar_token2.lineno)
+        p[0] = Str(wrapped_scalar_token2c)
 
-        scalar = re.sub('\n\s+', ' ', str(p[2]))
-        p[0] = Str(scalar.replace('\\"', '"'))
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
+
 
     @strict(Str)
     def p_scalar__singlequote(self, p):
         """
         scalar  : SINGLEQUOTE_START SCALAR SINGLEQUOTE_END
         """
-        p[0] = Str(str(p[2]).replace("''", "'"))
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> ('single-quote') {p[2]}",file=sys.stderr)
+        # ****
+        #p[0] = Str(str(p[2]).replace("''", "'"))
+        wrapped_scalar_token2 = p[2]
+        scalar2a = wrapped_scalar_token2.get_value()
+        scalar2b = scalar2a.replace("''", "'")
+        wrapped_scalar_token2b = YAMLCommentedScalarToken.WrapAsString(scalar2b,wrapped_scalar_token2.lineno)
+        p[0] = Str(wrapped_scalar_token2b)
 
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
+
+        
     @strict(Str)
     def p_scalar__quote_empty(self, p):
         """
         scalar  : DOUBLEQUOTE_START DOUBLEQUOTE_END
                 | SINGLEQUOTE_START SINGLEQUOTE_END
         """
-        p[0] = Str('')
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> (empty quote string)",file=sys.stderr)
+        # ****
+        #p[0] = Str('')
+        #p[0] = ScalarDispatch('', cast='str')
+
+        wrapped_scalar = YAMLCommentedScalarToken.WrapAsString('',p.lexer.lineno)
+        p[0] = Str(wrapped_scalar)
+
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
 
     @strict(Scalar)
     def p_scalar__explicit_cast(self, p):
         """
         scalar  : CAST_TYPE scalar
         """
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> (explicit cast p[1]) {p[2]}",file=sys.stderr)
+
         p[0] = ScalarDispatch(p[2].raw_value, cast=p[1])
+
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
 
     @strict(Scalar)
     def p_scalar(self, p):
         """
         scalar  : SCALAR
         """
-        p[0] = ScalarDispatch(p[1])
+        # ****
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> (default rule) type = {p[1]}",file=sys.stderr)
+
+        wrapped_scalar_token1 = p[1]
+        scalar_node1 = ScalarDispatch(wrapped_scalar_token1)
+        YAMLTokens.MostRecentScalarNode = scalar_node1
+        YAMLTokens.MostRecentScalarToken = None
+        p[0] = scalar_node1
+
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
 
     @strict(Str)
     def p_scalar__literal(self, p):
@@ -292,7 +335,14 @@ class YAMLProductions(YAMLTokens):
         """
         scalar = '\n'.join([p[1].value, p[3]])
 
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print(f"**** <p_scalar> (indended multi-line) {fold(scalar)}", file=sys.stderr)
+
         p[0] = ScalarDispatch(fold(scalar), cast='str')
+
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
+        
 
     @strict(tuple)
     def p_scalar_group(self, p):
@@ -301,13 +351,32 @@ class YAMLProductions(YAMLTokens):
                         | scalar_group SCALAR
         """
         if len(p) == 2:
-            p[0] = (str(p[1]),)
+            if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+                print(f"**** <p_scalar_group> (single entry) {p[1]}",file=sys.stderr)
+            #p[0] = (str(p[1]),)
+            wrapped_scalar_token1 = p[1]
+            scalar_token1 = wrapped_scalar_token1.get_value()
+            p[0] = (str(scalar_token1),)
 
         if len(p) == 3:
-            p[0] = p[1] + (str(p[2]),)
+            if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+                # print(f"**** <p_scalar_group> (double-chain entry) Type: ({type(p[1])},{type(p[2])})",file=sys.stderr)
+                print(f"**** <p_scalar_group> (double-chain entry) ({p[1]},{p[2]})",file=sys.stderr)
+            #p[0] = p[1] + (str(p[2]),)
+            wrapped_scalar_token2 = p[2]
+            scalar_token2 = wrapped_scalar_token2.get_value()            
+            p[0] = p[1] + (str(scalar_token2),)
 
         if len(p) == 4:
-            p[0] = p[1] + (str(p[3]),)
+            if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+                print(f"**** <p_scalar_group> (????triple-chain entry) ({p[1]},{p[2]},{p[3]})",file=sys.stderr) 
+            #p[0] = p[1] + (str(p[3]),)
+            wrapped_scalar_token3 = p[3]
+            scalar_token3 = wrapped_scalar_token3.get_value()            
+            p[0] = p[1] + (str(scalar_token3),)
+
+        if WITHCOMMENTS_PRODUCTIONS_DEBUG:
+            print("----",file=sys.stderr)
 
     def p_ignore_indent_dedent(self, p):
         """
@@ -380,6 +449,6 @@ class YAMLProductions(YAMLTokens):
         """
         p[0] = p[1]
 
-        # def p_empty(self, p):
-        #     """empty    :"""
-        #     pass
+    # def p_empty(self, p):
+    #     """empty    :"""
+    #     pass
